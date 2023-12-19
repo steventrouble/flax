@@ -47,7 +47,7 @@ class CNN(nn.Module):
     x = x.reshape((x.shape[0], -1))  # flatten
     x = nn.Dense(features=256)(x)
     x = nn.relu(x)
-    x = nn.Dense(features=10)(x)
+    x = nn.Dense(features=11)(x)
     return x
 
 
@@ -55,11 +55,31 @@ class CNN(nn.Module):
 def apply_model(state, images, labels):
   """Computes gradients, loss and accuracy for a single batch."""
 
-  def loss_fn(params):
+  def loss_fn(params, images, labels, lambda_confidence=0.5):
+    # Apply the model to get logits
     logits = state.apply_fn({'params': params}, images)
-    one_hot = jax.nn.one_hot(labels, 10)
-    loss = jnp.mean(optax.softmax_cross_entropy(logits=logits, labels=one_hot))
-    return loss, logits
+
+    # Separate the confidence logit
+    confidence_logits = logits[:, -1]  # Last logit for confidence
+    prediction_logits = logits[:, :-1] # All logits except the last
+
+    # Convert the confidence logits to confidence scores (in range [0, 1])
+    confidence_scores = jax.nn.sigmoid(confidence_logits)
+
+    # Compute the prediction loss
+    one_hot = jax.nn.one_hot(labels, 10)  # Assuming 10 classes
+    prediction_loss = optax.softmax_cross_entropy(logits=prediction_logits, labels=one_hot)
+
+    # Apply confidence weighting
+    weighted_prediction_loss = (1 - confidence_scores) * prediction_loss
+
+    # Compute the confidence penalty
+    confidence_penalty = lambda_confidence * (1 - confidence_scores)
+
+    # Combine weighted prediction loss and confidence penalty
+    total_loss = jnp.mean(weighted_prediction_loss + confidence_penalty)
+
+    return total_loss, logits
 
   grad_fn = jax.value_and_grad(loss_fn, has_aux=True)
   (loss, logits), grads = grad_fn(state.params)
