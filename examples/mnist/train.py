@@ -55,7 +55,7 @@ class CNN(nn.Module):
 def apply_model(state, images, labels):
   """Computes gradients, loss and accuracy for a single batch."""
 
-  def loss_fn(params, images, labels, lambda_confidence=0.5):
+  def loss_fn(params):
     # Apply the model to get logits
     logits = state.apply_fn({'params': params}, images)
 
@@ -74,7 +74,7 @@ def apply_model(state, images, labels):
     weighted_prediction_loss = (1 - confidence_scores) * prediction_loss
 
     # Compute the confidence penalty
-    confidence_penalty = lambda_confidence * (1 - confidence_scores)
+    confidence_penalty = 0.101 * (1 - confidence_scores)
 
     # Combine weighted prediction loss and confidence penalty
     total_loss = jnp.mean(weighted_prediction_loss + confidence_penalty)
