@@ -71,10 +71,11 @@ def apply_model(state, images, labels):
     prediction_loss = optax.softmax_cross_entropy(logits=prediction_logits, labels=one_hot)
 
     # Apply confidence weighting
-    weighted_prediction_loss = (1 - confidence_scores) * prediction_loss
+    alpha = 0.101
+    weighted_prediction_loss = ((1 - alpha) * (1 - confidence_scores) + alpha) * prediction_loss
 
     # Compute the confidence penalty
-    confidence_penalty = 0.101 * (1 - confidence_scores)
+    confidence_penalty = alpha * (1 - confidence_scores)
 
     # Combine weighted prediction loss and confidence penalty
     total_loss = jnp.mean(weighted_prediction_loss + confidence_penalty)
